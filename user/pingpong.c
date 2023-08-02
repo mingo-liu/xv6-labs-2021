@@ -3,28 +3,36 @@
 #include "user/user.h"
 
 int main() {
-	int pid, p[3];
-	char buf[21];
-	
-	pipe(p);
-
+	int pid, p1[2], p2[2];
+	char buf[2];
+	pipe(p1);  
+	pipe(p2); 	//注意：pipe的创建一定要位于fork前,不然父子进程会创建各自的pipe
 	pid = fork();
-	if (pid == 1) {
-		close(p[2]);
-		read(p[1], buf, 5);
-		close(p[1]);
 
-		printf("%s\n", buf);
-		printf("<%d>: received ping\n", getpid());
-		exit(1);
+	if (pid == 0) {
+		close(p1[1]);
+		read(p1[0], buf, 1);
+		p1[1] = '\0';
+//		printf("%s\n", buf);
+		close(p1[0]);
+
+		close(p2[0]);
+		write(p2[1],buf, 1);
+		close(p2[1]);
+
+		printf("%d: received ping\n", getpid());
 	} else {
-		close(p[1]);
-		write(p[2], "ping\n", 5);
-		close(p[2]);
+		close(p1[0]);
+		write(p1[1], "p", 1);
+		close(p1[1]);
 
-		wait(1);
+		wait(0);
+		close(p2[1]);
+		read(p2[0], buf, 1);
+//		printf("%s\n", buf);
+		close(p2[0]);
 
-		printf("<%d>: received pong\n", getpid());
-	}
-	exit(1);
+		printf("%d: received pong\n", getpid());
+	} 
+	exit(0);
 }
