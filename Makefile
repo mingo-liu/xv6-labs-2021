@@ -193,7 +193,21 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-
+	$U/_copy\
+	$U/_open\
+	$U/_fork\
+	$U/_exec\
+	$U/_forkexec\
+	$U/_redirect\
+	$U/_cat_demo\
+	$U/_sleep\
+	$U/_pingpong\
+	$U/_test\
+	$U/_primes\
+	$U/_find\
+	$U/_xargs\
+	$U/_trace\
+	$U/_sysinfotest\
 
 
 

@@ -1,6 +1,8 @@
 #include "param.h"
 #include "types.h"
 #include "memlayout.h"
+
+
 #include "elf.h"
 #include "riscv.h"
 #include "defs.h"
@@ -21,8 +23,8 @@ kvmmake(void)
 {
   pagetable_t kpgtbl;
 
-  kpgtbl = (pagetable_t) kalloc();
-  memset(kpgtbl, 0, PGSIZE);
+  kpgtbl = (pagetable_t) kalloc();	// root page table or 1-level page table
+  memset(kpgtbl, 0, PGSIZE);     //initialize the page table with zero
 
   // uart registers
   kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
@@ -83,18 +85,18 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
   if(va >= MAXVA)
     panic("walk");
 
-  for(int level = 2; level > 0; level--) {
+  for(int level = 2; level > 0; level--) {	
     pte_t *pte = &pagetable[PX(level, va)];
-    if(*pte & PTE_V) {
+    if(*pte & PTE_V) {		// check out valid bit
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)	//create 2-level and 3-level page table
         return 0;
       memset(pagetable, 0, PGSIZE);
-      *pte = PA2PTE(pagetable) | PTE_V;
+      *pte = PA2PTE(pagetable) | PTE_V;		//store pa to	PTE of the last level page table
     }
   }
-  return &pagetable[PX(0, va)];
+  return &pagetable[PX(0, va)];			// the address of the	PTE
 }
 
 // Look up a virtual address, return the physical address,
@@ -134,6 +136,7 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 // physical addresses starting at pa. va and size might not
 // be page-aligned. Returns 0 on success, -1 if walk() couldn't
 // allocate a needed page-table page.
+// range:[va, va + size - 1]
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
@@ -143,15 +146,15 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   if(size == 0)
     panic("mappages: size");
   
-  a = PGROUNDDOWN(va);
-  last = PGROUNDDOWN(va + size - 1);
+  a = PGROUNDDOWN(va);		//VPN
+  last = PGROUNDDOWN(va + size - 1);	//
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1)) == 0)	// the PTE created by walk is not set any bits.
       return -1;
     if(*pte & PTE_V)
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
-    if(a == last)
+    if(a == last)			// it at least creates a PTE for a physical page.
       break;
     a += PGSIZE;
     pa += PGSIZE;

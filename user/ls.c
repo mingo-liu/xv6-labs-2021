@@ -55,7 +55,7 @@ ls(char *path)
     p = buf+strlen(buf);
     *p++ = '/';
     while(read(fd, &de, sizeof(de)) == sizeof(de)){
-      if(de.inum == 0)
+      if(de.inum == 0) //inum: inode number
         continue;
       memmove(p, de.name, DIRSIZ);
       p[DIRSIZ] = 0;
@@ -63,6 +63,7 @@ ls(char *path)
         printf("ls: cannot stat %s\n", buf);
         continue;
       }
+			// don't change p all the time
       printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
     }
     break;

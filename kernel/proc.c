@@ -26,6 +26,22 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+
+//lab2-sysinfo
+//To collect the number of processes
+int procnumber() {
+  struct proc *p;
+  int n = 0;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+			n++;
+    } 
+    release(&p->lock);
+  }
+  return n;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -289,6 +305,9 @@ fork(void)
   }
   np->sz = p->sz;
 
+	//lab2-trace
+	np->trace_arg = p->trace_arg;
+
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -314,6 +333,7 @@ fork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
+
 
   return pid;
 }

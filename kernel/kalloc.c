@@ -23,6 +23,23 @@ struct {
   struct run *freelist;
 } kmem;
 
+//lab2-sysinfo
+//To collect the number of processes
+int kfreememory(void) {
+	struct run *r;
+	int n;
+
+	acquire(&kmem.lock);
+	r = kmem.freelist;
+	n = 0;	
+	while (r) {
+		n++;
+		r = r->next;
+	}
+	release(&kmem.lock);
+	return n*4096;
+}
+
 void
 kinit()
 {
@@ -39,7 +56,7 @@ freerange(void *pa_start, void *pa_end)
     kfree(p);
 }
 
-// Free the page of physical memory pointed at by v,
+// Free the page of physical memory pointed at by pa,
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
@@ -54,9 +71,9 @@ kfree(void *pa)
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
-  r = (struct run*)pa;
+  r = (struct run*)pa;	//It store each free page’s run structure in the free page itself, since there’s nothing else stored there. 
 
-  acquire(&kmem.lock);
+  acquire(&kmem.lock);	 
   r->next = kmem.freelist;
   kmem.freelist = r;
   release(&kmem.lock);
@@ -80,3 +97,5 @@ kalloc(void)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
 }
+
+

@@ -3,9 +3,38 @@
 #include "defs.h"
 #include "date.h"
 #include "param.h"
+#include "sysinfo.h" //lab2
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+
+//lab2-trace system call
+uint64 sys_trace(void) {
+	int n;
+	if (argint(0, &n) < 0)
+		return -1;
+	struct proc *p = myproc();	
+	p->trace_arg = n;
+	return 0;		// zero or positive nubmer?
+}
+
+//lab2-sysinfo system call
+uint64 sys_sysinfo(void) {
+	struct proc *p = myproc();
+	struct sysinfo psi;
+	uint64 si;
+
+	psi.freemem = kfreememory();	
+	psi.nproc = procnumber();
+
+	if (argaddr(0, &si) < 0)
+		return -1;
+//	printf("%d %d\n", psi.freemem, psi.nproc);
+
+	if (copyout(p->pagetable, si,(char*)&psi, sizeof(psi)) < 0)
+		return -1;
+	return 0;
+}
 
 uint64
 sys_exit(void)
