@@ -14,6 +14,32 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+													
+
+//lab3-print a page table
+void recursiveprint(int level, pagetable_t page_table){
+	for (int i = 0; i < 512; i++) {
+		pte_t pte = page_table[i];
+		if (pte & PTE_V) {
+			uint64 child = PTE2PA(pte);
+			switch(level){
+				case 1:
+					printf("..%d: pte %p pa %p\n", i, pte, child); break;
+				case 2:
+					printf(".. ..%d: pte %p pa %p\n", i, pte, child); break;
+				default:
+					printf(".. .. ..%d: pte %p pa %p\n", i, pte, child);
+			}
+			if (level < 3)
+				recursiveprint(level + 1, (pagetable_t)child);								
+		}
+	}
+}
+
+void vmprint(pagetable_t page_table) {
+	printf("page table %p\n", page_table);
+	recursiveprint(1, page_table);
+}
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -269,7 +295,7 @@ freewalk(pagetable_t pagetable)
   // there are 2^9 = 512 PTEs in a page table.
   for(int i = 0; i < 512; i++){
     pte_t pte = pagetable[i];
-    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){	
       // this PTE points to a lower-level page table.
       uint64 child = PTE2PA(pte);
       freewalk((pagetable_t)child);

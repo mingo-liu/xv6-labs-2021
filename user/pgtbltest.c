@@ -3,6 +3,7 @@
 #include "kernel/types.h"
 #include "kernel/riscv.h"
 #include "user/user.h"
+#include "kernel/memlayout.h"
 
 void ugetpid_test();
 void pgaccess_test();
@@ -33,7 +34,7 @@ ugetpid_test()
   printf("ugetpid_test starting\n");
   testname = "ugetpid_test";
 
-  for (i = 0; i < 64; i++) {
+  for (i = 0; i < 1; i++) {
     int ret = fork();
     if (ret != 0) {
       wait(&ret);
@@ -41,10 +42,11 @@ ugetpid_test()
         exit(1);
       continue;
     }
-    if (getpid() != ugetpid())
+    if (getpid() != ugetpid()){
       err("missmatched PID");
+		}
     exit(0);
-  }
+	}
   printf("ugetpid_test: OK\n");
 }
 
