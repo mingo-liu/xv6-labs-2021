@@ -142,6 +142,7 @@ walkaddr(pagetable_t pagetable, uint64 va)
     return 0;
   if((*pte & PTE_U) == 0)
     return 0;
+//	*pte |= PTE_A;
   pa = PTE2PA(*pte);
   return pa;
 }
@@ -427,15 +428,15 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   int got_null = 0;
 
   while(got_null == 0 && max > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
+    va0 = PGROUNDDOWN(srcva);			// set offset to zero 
+    pa0 = walkaddr(pagetable, va0);  	// look up the process's pagetable, yielding physical address pa0
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (srcva - va0);
     if(n > max)
       n = max;
 
-    char *p = (char *) (pa0 + (srcva - va0));
+    char *p = (char *) (pa0 + (srcva - va0));		// p is the pa of srva and also is a 
     while(n > 0){
       if(*p == '\0'){
         *dst = '\0';

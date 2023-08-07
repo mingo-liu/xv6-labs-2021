@@ -1,0 +1,7 @@
+1.the process needed the process id.
+2.
+  page 0: text
+  page 2: stack
+  page 1: no
+  usyscall
+

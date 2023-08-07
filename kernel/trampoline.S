@@ -61,7 +61,7 @@ uservec:
         sd t6, 280(a0)
 
 	# save the user a0 in p->trapframe->a0
-        csrr t0, sscratch
+        csrr t0, sscratch     # t0<---sscratch 
         sd t0, 112(a0)
 
         # restore kernel stack pointer from p->trapframe->kernel_sp

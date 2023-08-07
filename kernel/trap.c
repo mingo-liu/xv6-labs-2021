@@ -65,9 +65,9 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
+  } else if((which_dev = devintr()) != 0){	//device interrupts
     // ok
-  } else {
+  } else {	//exception
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
@@ -125,7 +125,7 @@ usertrapret(void)
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 fn = TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);
+  ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);		//a0:TRAPFRAME, a1:satp
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,
@@ -134,7 +134,7 @@ void
 kerneltrap()
 {
   int which_dev = 0;
-  uint64 sepc = r_sepc();
+  uint64 sepc = r_sepc();			// saved to the kernel stack of the interrupted process
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
   
