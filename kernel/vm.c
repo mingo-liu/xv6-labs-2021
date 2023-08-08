@@ -409,7 +409,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     if(n > max)
       n = max;
 
-    char *p = (char *) (pa0 + (srcva - va0));
+    char *p = (char *) (pa0 + (srcva - va0));		// identity mapping in kernel
     while(n > 0){
       if(*p == '\0'){
         *dst = '\0';
