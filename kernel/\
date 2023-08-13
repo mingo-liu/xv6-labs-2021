@@ -29,13 +29,13 @@ static char digits[] = "0123456789abcdef";
 //lab4-backtrace
 void backtrace(void) {
 		uint64 fp = r_fp();
-		uint64 top = PGROUNDUP(fp);	
-
-//		printf("fp = %p\n", fp);
-//		printf("*fp = %p\n", *(uint64*)fp);
-//		printf("*(fp - 8) = %p\n", *(uint64*)(fp - 8));			// return address
-//		printf("*(fp - 16) = %p\n", *(uint64*)(fp - 16));		// fp
-//		printf("*(*(fp - 16) - 8) = %p\n", *(uint64*)(*(uint64*)(fp - 16) - 8));	//ra	
+		uint64 top =	PGROUNDUP(fp);	
+		printf("top = %p\n", top);
+		printf("fp = %p\n", fp);
+		printf("*fp = %p\n", *(uint64*)fp);
+		printf("*(fp - 8) = %p\n", *(uint64*)(fp - 8));			// return address
+		printf("*(fp - 16) = %p\n", *(uint64*)(fp - 16));		// fp
+		printf("*(*(fp - 16) - 8) = %p\n", *(uint64*)(*(uint64*)(fp - 16) - 8));	//ra	
 		
 		printf("backtrace:\n");
 		for (; fp < top; fp = *(uint64*)(fp-16)) {
@@ -140,7 +140,6 @@ panic(char *s)
   printf(s);
   printf("\n");
   panicked = 1; // freeze uart output from other CPUs
-	backtrace();
   for(;;)
     ;
 }

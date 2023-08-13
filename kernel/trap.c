@@ -66,8 +66,10 @@ usertrap(void)
 
     syscall();
   } else if((which_dev = devintr()) != 0){
+		// device interrupts
     // ok
   } else {
+		// exceptions
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
@@ -77,9 +79,20 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
+//		printf("%d\n", p->pid);
+//		(*((void (*)())(p->handler)))();
+		if (p->ticks != 0) {
+			p->numticks += 1;
+			if (p->inhandler == 0 && p->numticks == p->ticks){
+				*p->handlerframe = *p->trapframe;
+				p->trapframe->epc = p->handler;
+				p->inhandler = 1;
+				p->numticks = 0;
+			}
+		}
     yield();
-
+	}
   usertrapret();
 }
 
@@ -118,6 +131,9 @@ usertrapret(void)
   w_sstatus(x);
 
   // set S Exception Program Counter to the saved user pc.
+//	if (p->pid == 3)
+//		printf("---%p", p->trapframe->epc);
+
   w_sepc(p->trapframe->epc);
 
   // tell trampoline.S the user page table to switch to.

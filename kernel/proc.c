@@ -141,6 +141,17 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+	//lab4-alarm
+	// Allocate a inhandler page.
+  if((p->handlerframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+	p->ticks = 0;
+	p->handler = 0;
+	p->numticks = 0;	
+	p->inhandler = 0;
   return p;
 }
 
@@ -164,6 +175,15 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+	
+	//lab4-alarm
+	if (p->handlerframe)
+    kfree((void*)p->handlerframe);
+	p->handlerframe = 0;
+	p->ticks = 0;
+	p->handler = 0;
+	p->numticks = 0;
+	p->inhandler = 0;
 }
 
 // Create a user page table for a given process,

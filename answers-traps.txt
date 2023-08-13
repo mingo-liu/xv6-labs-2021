@@ -1,0 +1,15 @@
+a0-17
+a2
+
+26:	45b1                	li	a1,12
+
+0x628
+
+0x38
+
+ioutput: HE110 World
+for big-endian: i = 0x726c6400, don't need to change 57616
+
+output: `x=3 y=5301`
+Normally EBP is used to backup ESP, so if ESP is changed by the code in a function, all it takes to restore ESP is `mov esp, ebp`.
+when calling `printf`, it first pushes`3` into the stack, and then pushes `"x=%d y=%d` into stack. when it analyzes above string, `[ebp + 8]` represents the location of `3` and `[ebp + 12]`  represents the next location. `printf` can print the value of `[ebp+12]` it pointes to, so the printed value is not definite. 
