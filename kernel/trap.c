@@ -10,11 +10,14 @@ struct spinlock tickslock;
 uint ticks;
 
 extern char trampoline[], uservec[], userret[];
+extern uint refcount[];
 
 // in kernelvec.S, calls kerneltrap().
 void kernelvec();
 
+
 extern int devintr();
+extern int cowintr(struct proc *, uint64);
 
 void
 trapinit(void)
@@ -67,6 +70,11 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if (r_scause() == 15) {
+		// store page fault
+		if (cowintr(p, r_stval()) < 0) {
+			p->killed = 1;
+		}
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -216,5 +224,41 @@ devintr()
   } else {
     return 0;
   }
+}
+
+//lab5-COW fork
+int cowintr(struct proc *p, uint64 va){
+	pte_t *pte;
+	uint64 pa;
+	uint flags;
+	char *mem;
+
+	if (va >= MAXVA){
+		goto err;
+	}
+	if((pte = walk(p->pagetable, va, 0)) == 0) {
+		panic("cowintr: pte should exist");
+	}
+	if ((*pte & PTE_V) == 0) {
+		panic("cowintr: page not present");
+	}
+	if ((*pte & PTE_C) == 0) {	//only read page, not COW page
+		goto err;
+	}
+
+	pa = PTE2PA(*pte);
+	if ((mem = kalloc()) == 0) {
+		goto err;
+	}
+	memmove(mem, (char *)pa, PGSIZE);	// first memmove, then kfree
+	kfree((void*)pa);
+
+	flags = (PTE_FLAGS(*pte) | PTE_W) & (~PTE_C);			
+	*pte = PA2PTE(mem) | flags;
+	
+	return 0;
+
+err:
+	return -1;
 }
 

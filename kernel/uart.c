@@ -152,13 +152,13 @@ uartstart()
     
     int c = uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE];
     uart_tx_r += 1;
-    
     // maybe uartputc() is waiting for space in the buffer.
     wakeup(&uart_tx_r);
     
     WriteReg(THR, c);
   }
 }
+    
 
 // read one input character from the UART.
 // return -1 if none is waiting.

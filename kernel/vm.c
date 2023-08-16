@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -14,6 +16,7 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -139,17 +142,17 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
   uint64 a, last;
   pte_t *pte;
-
   if(size == 0)
     panic("mappages: size");
-  
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
+	
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
-    if(*pte & PTE_V)
+    if(*pte & PTE_V){
       panic("mappages: remap");
+		}
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
       break;
@@ -303,20 +306,20 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+
     pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+		*pte &= ~PTE_W;			// clear write bit
+		*pte |= PTE_C;		 // set cow bit
+		flags = PTE_FLAGS(*pte); 
+
+		increfcount(pa);
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
       goto err;
     }
   }
@@ -347,12 +350,33 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
+	pte_t *pte;
+	uint flags;
+	char *mem;
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     pa0 = walkaddr(pagetable, va0);
+
     if(pa0 == 0)
       return -1;
+		if ((pte = walk(pagetable, va0, 0)) == 0)	{
+			return -1;
+		}
+
+		if (*pte & PTE_C) {
+			if ((mem = kalloc()) == 0) {
+				myproc()->killed = 1;
+				return -1;
+			}
+			memmove(mem, (char *)pa0, PGSIZE);
+			kfree((void*)pa0);
+
+			flags = (PTE_FLAGS(*pte) | PTE_W) & ~(PTE_C);
+			*pte = PA2PTE(mem) | flags;
+			pa0 = (uint64)mem;	// update pa0
+		}
+
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
@@ -432,3 +456,4 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
