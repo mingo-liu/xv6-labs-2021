@@ -90,7 +90,7 @@ push_off(void)
 {
   int old = intr_get();
 
-  intr_off();
+  intr_off();		// disable interrupts
   if(mycpu()->noff == 0)
     mycpu()->intena = old;
   mycpu()->noff += 1;
@@ -106,5 +106,5 @@ pop_off(void)
     panic("pop_off");
   c->noff -= 1;
   if(c->noff == 0 && c->intena)
-    intr_on();
+    intr_on();		// enable interrupts
 }
