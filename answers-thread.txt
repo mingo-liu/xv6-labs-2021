@@ -1,0 +1,14 @@
+thread1                 thread2
+in insert               in insert
+e->key = key;           
+e->value = value;
+e->next = n; 
+                        e->key = key;
+						e->value = value;
+						e->next = n;
+*p = e;
+						*p = e;
+
+explanation:
+The insert of thread1 is missed.
+
