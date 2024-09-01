@@ -290,7 +290,7 @@ sys_open(void)
   int fd, omode;
   struct file *f;
   struct inode *ip;
-  int n;
+  int n, r;
 
   if((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
     return -1;
@@ -310,6 +310,31 @@ sys_open(void)
     }
     ilock(ip);
     if(ip->type == T_DIR && omode != O_RDONLY){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+  }
+
+  // deal with  a symbolic link
+  int depth = 0;
+  while (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
+    char ktarget[MAXPATH];
+    memset(ktarget, 0, MAXPATH);
+    if ((r = readi(ip, 0, (uint64)ktarget, 0, MAXPATH)) < 0) {
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    iunlockput(ip);
+    if((ip = namei(ktarget)) == 0){
+      end_op();
+      return -1;
+    }
+
+    ilock(ip);
+    depth++;
+    if (depth > 10) {
       iunlockput(ip);
       end_op();
       return -1;
@@ -350,6 +375,74 @@ sys_open(void)
 
   return fd;
 }
+
+// uint64
+// sys_open(void)
+// {
+//   char path[MAXPATH];
+//   int fd, omode;
+//   struct file *f;
+//   struct inode *ip;
+//   int n;
+
+//   if((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
+//     return -1;
+
+//   begin_op();
+
+//   if(omode & O_CREATE){
+//     ip = create(path, T_FILE, 0, 0);
+//     if(ip == 0){
+//       end_op();
+//       return -1;
+//     }
+//   } else {
+//     if((ip = namei(path)) == 0){
+//       end_op();
+//       return -1;
+//     }
+//     ilock(ip);
+//     if(ip->type == T_DIR && omode != O_RDONLY){
+//       iunlockput(ip);
+//       end_op();
+//       return -1;
+//     }
+//   }
+
+//   if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
+//     iunlockput(ip);
+//     end_op();
+//     return -1;
+//   }
+
+//   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+//     if(f)
+//       fileclose(f);
+//     iunlockput(ip);
+//     end_op();
+//     return -1;
+//   }
+
+//   if(ip->type == T_DEVICE){
+//     f->type = FD_DEVICE;
+//     f->major = ip->major;
+//   } else {
+//     f->type = FD_INODE;
+//     f->off = 0;
+//   }
+//   f->ip = ip;
+//   f->readable = !(omode & O_WRONLY);
+//   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+
+//   if((omode & O_TRUNC) && ip->type == T_FILE){
+//     itrunc(ip);
+//   }
+
+//   iunlock(ip);
+//   end_op();
+
+//   return fd;
+// }
 
 uint64
 sys_mkdir(void)
@@ -483,4 +576,43 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+// Create a new symbolic link at path that refers to file named by target 
+int 
+sys_symlink(char *target, char *path) {
+  char kpath[MAXPATH], ktarget[MAXPATH];
+  memset(kpath, 0, MAXPATH);
+  memset(ktarget, 0, MAXPATH);
+  struct inode *ip;
+  int n, r;
+
+  if((n = argstr(0, ktarget, MAXPATH)) < 0)
+    return -1;
+
+  if ((n = argstr(1, kpath, MAXPATH)) < 0)
+    return -1;
+
+  int ret = 0;
+  begin_op();
+
+  if((ip = namei(kpath)) != 0){
+    // symlink already exists
+    ret = -1;
+    goto final;
+  }
+
+  ip = create(kpath, T_SYMLINK, 0, 0);
+  if(ip == 0){
+    ret = -1;
+    goto final;
+  }
+
+  if ((r = writei(ip, 0, (uint64)ktarget, 0, MAXPATH)) < 0)
+    ret = -1;
+  iunlockput(ip);
+
+final:
+  end_op();
+  return ret;
 }
