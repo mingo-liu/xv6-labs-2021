@@ -484,3 +484,107 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64
+sys_mmap(void) {
+  uint64 addr;
+  int length, prot, flags, fd, offset;
+  struct file *f;
+  if (argaddr(0, &addr) < 0 || argint(1, &length) < 0 || argint(2, &prot) < 0 || 
+      argint(3, &flags) < 0 || argfd(4, &fd, &f) < 0 || argint(5, &offset) < 0) {
+     return -1;
+  }
+
+  struct proc *p = myproc();
+
+  // check virtual address area
+  length = PGROUNDUP(length);
+  if (p->sz + length > MAXVA) {
+    return -1;  
+  }
+
+  // check protection
+  if ((prot & PROT_READ) && !f->readable) {
+    return -1;
+  }
+  if ((prot & PROT_WRITE) && !f->writable && flags == MAP_SHARED) {
+    return -1;
+  }
+  // allocate virtual memory address 
+  for (int i = 0; i < NVMA; ++i) {
+    struct vma *vma = &p->vmas[i];
+    if (vma->valid == 0) {  // not be used by this process 
+      vma->valid = 1;
+      vma->addr = p->sz;
+      vma->length = length;
+      vma->prot = prot;
+      vma->flags = flags;
+      vma->fd = fd;
+      vma->f = f;
+      vma->offset = offset;
+      p->sz += length;
+      filedup(f);  // increase the reference count of f;
+      return vma->addr;
+    }
+  } 
+  return 0xffffffffffffffff;
+}
+
+uint64
+sys_munmap(void) {
+  uint64 addr;
+  int length;
+  if (argaddr(0, &addr) < 0 || argint(1, &length) < 0) {
+    return -1;
+  }
+  
+  struct proc *p = myproc();
+  struct vma *vma = 0;
+  for (int i = 0; i < NVMA; ++i) {
+    struct vma *cur = &p->vmas[i];
+    if (cur->valid && addr >= cur->addr && addr < cur->addr + cur->length) {
+      vma = cur;
+      break;
+    }
+  }
+  if (vma == 0) {
+    return -1;
+  }
+  addr = PGROUNDDOWN(addr);
+  length = PGROUNDUP(length);
+  // write dirty page to file
+  if (vma->flags & MAP_SHARED) {
+    for (uint64 va = addr; va < addr + length; va += PGSIZE) {
+      pte_t *pte = walk(p->pagetable, va, 0);
+      int pte_flag = PTE_FLAGS(*pte);
+      // is dirty page?
+      if (pte_flag & PTE_W) {
+        filewrite(vma->f, va, PGSIZE);
+      }
+    }
+  }
+  // only uvmunmap the pages in page table.
+  for (uint64 va = addr; va < addr + length; va += PGSIZE) {
+    pte_t *pte = walk(p->pagetable, va, 0);
+    int pte_flag = PTE_FLAGS(*pte);
+    if (pte_flag & PTE_V) {
+      uvmunmap(p->pagetable, va, 1, 1);
+    }
+  }
+  
+  if (addr == vma->addr && length == vma->length) {
+    vma->valid = 0;
+    fileclose(vma->f);
+  } else if (addr == vma->addr) {
+    vma->addr += length;
+    vma->length -= length;
+    vma->offset += length;
+  } else if (addr + length == vma->addr + vma->length) {
+    vma->length -= length;
+  } else {
+    panic("munmap a hole\n");  // not punch a hole in the middle of a region
+  }
+
+  p->sz -= length;
+  return 0;
+}

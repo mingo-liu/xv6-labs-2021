@@ -3,8 +3,12 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
+#include "fs.h"
+#include "file.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -65,6 +69,57 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 13 || r_scause() == 15) {
+    // printf("wwwww\n");
+    uint64 va = r_stval();  // the virtual address that caused the page fault. 
+    struct proc *p = myproc();
+    if (va > p->sz || va > MAXVA) {
+      p->killed = 1;
+    } else {
+      int found = 0;
+      for (int i = 0; i < NVMA; ++i) {
+        struct vma *vma = &p->vmas[i];
+        if (vma->valid && va >= vma->addr && va < vma->addr + vma->length) {
+          va = PGROUNDDOWN(va);  // page-align down  
+
+          // allocate a pysical page
+          uint64 pa = (uint64)kalloc();
+          if (pa == 0) {
+            break;
+          }
+          memset((void*)pa, 0, PGSIZE);
+
+          // read content from file
+          struct inode *ip = vma->f->ip;
+          ilock(ip);
+          if (readi(ip, 0, pa, va - vma->addr + vma->offset, PGSIZE) < 0) {
+            iunlock(ip);
+            break;
+          }
+          iunlock(ip);
+          // update page table
+          int pte_flag = PTE_U | PTE_V;
+          if (vma->prot & PROT_READ) {
+              pte_flag |= PTE_R;
+          }
+          if (vma->prot & PROT_WRITE) {
+              pte_flag |= PTE_W;
+          }
+          if (vma->prot & PROT_EXEC) {
+              pte_flag |= PTE_X;
+          }
+          if (mappages(p->pagetable, va, PGSIZE, pa, pte_flag) < 0) {
+              kfree((void*)pa);
+              break;
+          }
+          found = 1;
+          break;
+        }
+      }
+      if (!found) {
+        p->killed = 1;
+      }
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
