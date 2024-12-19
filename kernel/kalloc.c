@@ -14,7 +14,7 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
-uint refcount[PHYSTOP/PGSIZE];
+uint refcount[PHYSTOP/PGSIZE];  // 内存页数 
 
 
 struct run {
@@ -89,7 +89,7 @@ kalloc(void)
   r = kmem.freelist;
   if(r){
     kmem.freelist = r->next;
-		refcount[PA2INDEX(r)] = 1;
+		refcount[PA2INDEX(r)] = 1;  // 将新分配的内存页的引用计数置为1
 	}
   release(&kmem.lock);
 

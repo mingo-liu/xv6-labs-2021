@@ -227,6 +227,7 @@ devintr()
 }
 
 //lab5-COW fork
+// page-faut handler 
 int cowintr(struct proc *p, uint64 va){
 	pte_t *pte;
 	uint64 pa;
@@ -251,7 +252,7 @@ int cowintr(struct proc *p, uint64 va){
 		goto err;
 	}
 	memmove(mem, (char *)pa, PGSIZE);	// first memmove, then kfree
-	kfree((void*)pa);
+	kfree((void*)pa);   // 递减内存页的引用计数，计数值为零就释放掉内存页
 
 	flags = (PTE_FLAGS(*pte) | PTE_W) & (~PTE_C);			
 	*pte = PA2PTE(mem) | flags;
